@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kitchen Display System (KDS)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-gray-900 text-white p-6">
+    <div class="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
+        <h1 class="text-2xl font-bold text-orange-400">Kitchen Display System (Live Orders)</h1>
+        <span class="bg-green-600 text-xs px-3 py-1 rounded-full">Terhubung Real-Time</span>
+    </div>
+
+    <div id="ordersGrid" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+
+    <script>
+        const socket = io();
+        socket.emit('join_kitchen');
+
+        async function loadExistingOrders() {
+            const res = await fetch('/api/kitchen/orders');
+            const orders = await res.json();
+            orders.forEach(renderOrderCard);
+        }
+
+        socket.on('new_paid_order', (order) => {
+            renderOrderCard(order);
+        });
+
+        function renderOrderCard(order) {
+            const existing = document.getElementById(`order-${order.id}`);
+            if (existing) existing.remove();
+
+            const grid = document.getElementById('ordersGrid');
+            const itemsHtml = order.items.map(i => `
+                <li class="border-b border-gray-700 py-1.5">
+                    <div class="flex justify-between">
+                        <span><b class="text-orange-400">${i.quantity}x</b> ${i.name}</span>
+                    </div>
+                    ${i.notes ? `<p class="text-xs text-yellow-300 mt-0.5">* ${i.notes}</p>` : ''}
+                </li>
+            `).join('');
+
+            const isCooking = order.order_status === 'cooking';
+            const card = document.createElement('div');
+            card.id = `order-${order.id}`;
+            card.className = `bg-gray-800 border-2 ${isCooking ? 'border-yellow-500' : 'border-orange-500'} rounded-xl p-4 flex flex-col justify-between`;
+            card.innerHTML = `
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="bg-orange-600 font-bold px-3 py-1 rounded text-sm">Meja ${order.table_number}</span>
+                        <span class="text-xs px-2 py-0.5 rounded ${isCooking ? 'bg-yellow-600 text-white' : 'bg-blue-600 text-white'}">
+                            ${isCooking ? 'Dimasak' : 'Baru'}
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-1">${order.order_code}</p>
+                    <p class="text-sm text-gray-300 mb-3">Pemesan: <b>${order.customer_name}</b></p>
+                    <ul class="text-sm space-y-1 mb-4">${itemsHtml}</ul>
+                </div>
+                <div class="space-y-2">
+                    ${!isCooking ? `
+                        <button onclick="updateStatus(${order.id}, 'cooking')" class="w-full bg-yellow-600 hover:bg-yellow-700 py-2 rounded-lg font-bold text-sm">
+                            Mulai Masak
+                        </button>
+                    ` : ''}
+                    <button onclick="updateStatus(${order.id}, 'served')" class="w-full bg-green-600 hover:bg-green-700 py-2 rounded-lg font-bold text-sm">
+                        Selesai & Antar
+                    </button>
+                </div>
+            `;
+            grid.appendChild(card);
+        }
+
+        async function updateStatus(id, status) {
+            await fetch(`/api/kitchen/orders/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+
+            if (status === 'served') {
+                document.getElementById(`order-${id}`).remove();
+            } else {
+                const res = await fetch('/api/kitchen/orders');
+                const orders = await res.json();
+                const updated = orders.find(o => o.id === id);
+                if (updated) renderOrderCard(updated);
+            }
+        }
+
+        loadExistingOrders();
+    </script>
+</body>
+</html>

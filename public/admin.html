@@ -8,6 +8,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        @keyframes popIn {
+            from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-pop-in { animation: popIn 0.16s cubic-bezier(0.16, 1, 0.3, 1); }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
@@ -66,13 +71,46 @@
                 <p class="text-xs text-slate-500 mt-0.5">Klik badge status stok untuk mengaktifkan atau menonaktifkan menu secara instan.</p>
             </div>
 
-            <form id="productForm" class="bg-white p-4 rounded-2xl shadow-xs border border-slate-200/80 mb-6 grid grid-cols-1 md:grid-cols-4 gap-3">
-                <select id="prodCategory" required class="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-orange-500"></select>
-                <input type="text" id="prodName" placeholder="Nama Menu" required class="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:bg-white focus:outline-none focus:border-orange-500">
-                <input type="number" id="prodPrice" placeholder="Harga (Rp)" required class="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:bg-white focus:outline-none focus:border-orange-500">
-                <div class="flex gap-2">
-                    <input type="text" id="prodImage" placeholder="URL Gambar (Opsional)" class="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm flex-1 focus:bg-white focus:outline-none focus:border-orange-500">
-                    <button type="submit" class="bg-orange-600 hover:bg-orange-700 active:scale-95 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition">+ Simpan</button>
+            <form id="productForm" class="bg-white p-4 rounded-2xl shadow-xs border border-slate-200/80 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                <!-- Custom Modern Category Dropdown -->
+                <div class="relative md:col-span-3" id="customCatWrapper">
+                    <input type="hidden" id="prodCategory" required>
+                    <button type="button" onclick="toggleCatDropdown()" id="catDropdownBtn"
+                            class="w-full bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 flex items-center justify-between transition focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500">
+                        <span class="flex items-center gap-2 truncate">
+                            <span class="w-2 h-2 rounded-full bg-orange-500 shrink-0"></span>
+                            <span id="selectedCatLabel" class="truncate">Pilih Kategori</span>
+                        </span>
+                        <svg id="catChevron" class="w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+
+                    <!-- Floating Menu List -->
+                    <div id="catDropdownMenu" class="hidden absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-100 py-1.5 z-40 animate-pop-in">
+                    </div>
+                </div>
+
+                <!-- Nama Menu -->
+                <div class="md:col-span-3">
+                    <input type="text" id="prodName" placeholder="Nama Menu (misal: Kopi Susu)" required
+                           class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition">
+                </div>
+
+                <!-- Input Harga Auto Format Rp.5.000 -->
+                <div class="md:col-span-3 relative">
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-extrabold text-slate-400 select-none">Rp.</span>
+                    <input type="text" inputmode="numeric" id="prodPrice" oninput="formatRupiahInput(this)" placeholder="5.000" required
+                           class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition">
+                </div>
+
+                <!-- URL Gambar + Tombol Simpan -->
+                <div class="md:col-span-3 flex gap-2">
+                    <input type="text" id="prodImage" placeholder="URL Gambar (Opsional)"
+                           class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm flex-1 min-w-0 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition">
+                    <button type="submit" class="bg-orange-600 hover:bg-orange-700 active:scale-95 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-orange-600/20 transition shrink-0">
+                        + Simpan
+                    </button>
                 </div>
             </form>
 
@@ -102,7 +140,7 @@
                 <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80 flex items-center justify-between">
                     <div>
                         <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Omzet Lunas</p>
-                        <p class="text-3xl font-extrabold text-slate-900 mt-1" id="repRevenue">Rp 0</p>
+                        <p class="text-3xl font-extrabold text-slate-900 mt-1" id="repRevenue">Rp. 0</p>
                     </div>
                     <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-extrabold text-lg">Rp</div>
                 </div>
@@ -136,6 +174,8 @@
     </main>
 
     <script>
+        let categoriesCache = [];
+
         function showToast(msg) {
             const el = document.getElementById('toast');
             el.innerText = msg;
@@ -143,6 +183,62 @@
             clearTimeout(el._t);
             el._t = setTimeout(() => el.classList.add('hidden'), 2500);
         }
+
+        // Format otomatis titik ribuan saat mengetik (contoh: 5000 -> 5.000)
+        function formatRupiahInput(input) {
+            const rawDigits = input.value.replace(/\D/g, '');
+            if (!rawDigits) {
+                input.value = '';
+                return;
+            }
+            input.value = Number(rawDigits).toLocaleString('id-ID');
+        }
+
+        // Custom Dropdown Controls
+        function toggleCatDropdown() {
+            const menu = document.getElementById('catDropdownMenu');
+            const chevron = document.getElementById('catChevron');
+            const isHidden = menu.classList.contains('hidden');
+            menu.classList.toggle('hidden', !isHidden);
+            chevron.classList.toggle('rotate-180', isHidden);
+        }
+
+        function selectCategoryOption(id, name) {
+            document.getElementById('prodCategory').value = id;
+            document.getElementById('selectedCatLabel').innerText = name;
+            document.getElementById('catDropdownMenu').classList.add('hidden');
+            document.getElementById('catChevron').classList.remove('rotate-180');
+            renderCategoryDropdownItems(id);
+        }
+
+        function renderCategoryDropdownItems(selectedId) {
+            const menu = document.getElementById('catDropdownMenu');
+            menu.innerHTML = categoriesCache.map(c => {
+                const isSelected = String(c.id) === String(selectedId);
+                return `
+                <button type="button" onclick="selectCategoryOption(${c.id}, '${c.name.replace(/'/g, "\\'")}')"
+                        class="w-full px-3.5 py-2.5 text-left text-sm flex items-center justify-between transition ${
+                            isSelected
+                            ? 'bg-orange-50 text-orange-600 font-bold'
+                            : 'text-slate-700 hover:bg-slate-50 font-medium'
+                        }">
+                    <span class="flex items-center gap-2.5">
+                        <span class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-orange-500' : 'bg-slate-300'}"></span>
+                        ${c.name}
+                    </span>
+                    ${isSelected ? '<svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' : ''}
+                </button>`;
+            }).join('');
+        }
+
+        // Tutup dropdown jika klik di luar area dropdown
+        document.addEventListener('click', (e) => {
+            const wrapper = document.getElementById('customCatWrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                document.getElementById('catDropdownMenu').classList.add('hidden');
+                document.getElementById('catChevron').classList.remove('rotate-180');
+            }
+        });
 
         function switchTab(tab) {
             ['tables', 'products', 'reports'].forEach(t => {
@@ -220,10 +316,13 @@
         async function loadProducts() {
             const res = await fetch('/api/admin/products');
             const data = await res.json();
+            categoriesCache = data.categories;
 
-            document.getElementById('prodCategory').innerHTML = data.categories.map(c => 
-                `<option value="${c.id}">${c.name}</option>`
-            ).join('');
+            if (categoriesCache.length > 0) {
+                const currentVal = document.getElementById('prodCategory').value;
+                const activeCat = categoriesCache.find(c => String(c.id) === String(currentVal)) || categoriesCache[0];
+                selectCategoryOption(activeCat.id, activeCat.name);
+            }
 
             document.getElementById('productsTable').innerHTML = data.products.map(p => `
                 <tr class="hover:bg-slate-50/70 transition">
@@ -232,7 +331,7 @@
                         <span class="font-bold text-slate-900">${p.name}</span>
                     </td>
                     <td class="p-4 text-slate-500 font-medium">${p.category_name || '-'}</td>
-                    <td class="p-4 font-bold text-slate-800">Rp ${p.price.toLocaleString('id-ID')}</td>
+                    <td class="p-4 font-bold text-slate-800">Rp.${Number(p.price).toLocaleString('id-ID')}</td>
                     <td class="p-4">
                         <button onclick="toggleStock(${p.id}, this)" 
                                 class="px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${p.is_available ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}">
@@ -245,10 +344,13 @@
 
         document.getElementById('productForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const rawPrice = Number(document.getElementById('prodPrice').value.replace(/\D/g, ''));
+            if (!rawPrice) return showToast('Masukkan harga menu yang valid!');
+
             const payload = {
                 category_id: document.getElementById('prodCategory').value,
                 name: document.getElementById('prodName').value,
-                price: Number(document.getElementById('prodPrice').value),
+                price: rawPrice,
                 image_url: document.getElementById('prodImage').value
             };
             await fetch('/api/admin/products', {
@@ -256,13 +358,14 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            e.target.reset();
+            document.getElementById('prodName').value = '';
+            document.getElementById('prodPrice').value = '';
+            document.getElementById('prodImage').value = '';
             showToast('Menu baru berhasil ditambahkan!');
             loadProducts();
         });
 
         async function toggleStock(id, btnEl) {
-            // Optimistic UI update (langsung berubah tanpa menunggu server)
             const isCurrentlyAvailable = btnEl.innerText.includes('Tersedia');
             btnEl.className = `px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${!isCurrentlyAvailable ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`;
             btnEl.innerText = !isCurrentlyAvailable ? '● Tersedia' : '○ Stok Habis';
@@ -274,7 +377,7 @@
         async function loadReports() {
             const res = await fetch('/api/admin/reports');
             const data = await res.json();
-            document.getElementById('repRevenue').innerText = `Rp ${Number(data.summary.total_revenue).toLocaleString('id-ID')}`;
+            document.getElementById('repRevenue').innerText = `Rp.${Number(data.summary.total_revenue).toLocaleString('id-ID')}`;
             document.getElementById('repOrders').innerText = `${data.summary.total_orders} Pesanan`;
 
             document.getElementById('reportsTable').innerHTML = data.recentOrders.map(o => `
@@ -282,7 +385,7 @@
                     <td class="p-4 font-mono text-xs text-slate-600">${o.order_code}</td>
                     <td class="p-4 font-extrabold text-slate-900">Meja ${o.table_number}</td>
                     <td class="p-4 font-medium">${o.customer_name}</td>
-                    <td class="p-4 font-extrabold text-emerald-600">Rp ${o.total_amount.toLocaleString('id-ID')}</td>
+                    <td class="p-4 font-extrabold text-emerald-600">Rp.${Number(o.total_amount).toLocaleString('id-ID')}</td>
                     <td class="p-4">
                         <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase ${
                             o.order_status === 'served' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'

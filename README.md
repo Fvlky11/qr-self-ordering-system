@@ -1,59 +1,57 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
-require('dotenv').config();
+# RestoOS — QR Self-Ordering System & Kitchen Display (KDS)
 
-const pool = require('./config/db');
-const orderRoutes = require('./routes/orderRoutes');
+Aplikasi web *full-stack* pemesanan mandiri restoran berbasis QR Code meja dengan arsitektur **Pay-First**, terintegrasi dengan **Midtrans Snap Payment Gateway**, **PostgreSQL (Neon.tech)**, serta **Kitchen Display System (KDS)** yang tersinkronisasi secara *real-time*.
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+🔗 **Live Demo:** [https://qr-self-ordering-system.vercel.app](https://qr-self-ordering-system.vercel.app)
 
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+---
 
-app.use((req, res, next) => {
-    req.io = io;
-    next();
-});
+## Fitur Utama
 
-app.get('/', (req, res) => {
-    res.redirect('/admin.html');
-});
+### 1. Pelanggan (Scan QR Meja — Tanpa Login)
+- **Akses Instan via QR Code:** Validasi nomor meja dan token unik otomatis saat pelanggan memindai QR Code.
+- **Pencarian & Filter Kategori Real-Time:** Pencarian menu cepat tanpa *reload* halaman dilengkapi ringkasan keranjang (*drawer modal*) dan catatan khusus per item.
+- **Pembayaran Digital (Midtrans Snap):** Mendukung pembayaran QRIS, Virtual Account, dan E-Wallet dengan verifikasi otomatis.
+- **Pelacakan Status Pesanan & Struk Digital:** Indikator progres langsung (*Diterima* $\rightarrow$ *Dimasak* $\rightarrow$ *Diantar*) yang terhubung dengan layar dapur.
 
-app.use('/api', orderRoutes);
+### 2. Dapur / Kitchen Display System (`/kitchen.html`)
+- **Antrean Pesanan Lunas Real-Time:** Pesanan otomatis muncul begitu pembayaran terkonfirmasi menggunakan Socket.io dan *polling fallback*.
+- **Manajemen Status Masak:** Pembaruan status satu klik (*Mulai Masak* & *Selesai & Antar*) dengan tampilan layar gelap (*Dark KDS*) yang nyaman dibaca staf dapur.
 
-io.on('connection', (socket) => {
-    socket.on('join_kitchen', () => socket.join('kitchen_room'));
-    socket.on('join_order', (orderCode) => socket.join(`order_${orderCode}`));
-});
+### 3. Admin & Manajemen Restoran (`/admin.html`)
+- **Portal Login Staf & Keamanan Sesi:** Dilindungi halaman autentikasi khusus (`/login.html`) dengan *Signed HttpOnly Cookie* dan komparasi kredensial *constant-time*.
+- **Generator & Reset Token QR Meja:** Pembuatan QR Code dinamis per meja serta fitur *Reset Token* untuk mencegah penyalahgunaan tautan dari luar restoran.
+- **Manajemen Katalog Menu:** Penambahan menu dengan unggah foto wajib terkompresi otomatis di sisi klien, pemformatan harga Rupiah otomatis, serta *toggle* status stok instan.
+- **Laporan Omzet:** Ringkasan total pendapatan lunas dan riwayat transaksi terkini.
 
-async function initDatabase() {
-    try {
-        const check = await pool.query("SELECT to_regclass('public.tables')");
-        if (!check.rows[0].to_regclass) {
-            const schema = fs.readFileSync(path.join(__dirname, 'database', 'schema.sql'), 'utf8');
-            await pool.query(schema);
-            console.log('Tabel database dan data menu awal berhasil dibuat!');
-        }
-    } catch (err) {
-        console.error('Database init warning:', err.message);
-    }
-}
+---
 
-initDatabase();
+## Teknologi yang Digunakan
 
-// Jalankan server lokal hanya jika tidak sedang berjalan di environment serverless Vercel
-if (process.env.VERCEL !== '1') {
-    const PORT = process.env.PORT || 3000;
-    server.listen(PORT, () => {
-        console.log(`Server aktif di http://localhost:${PORT}`);
-    });
-}
+- **Backend:** Node.js, Express.js, Socket.io
+- **Database:** PostgreSQL (Neon.tech Serverless)
+- **Payment Gateway:** Midtrans Snap API
+- **Frontend:** HTML5, Tailwind CSS, Vanilla JavaScript (Optimistic UI)
+- **Deployment:** Vercel Serverless
 
-module.exports = app;
+---
+
+## Struktur Proyek
+
+```text
+qr-order-system/
+├── config/
+│   └── db.js                 # Konfigurasi koneksi PostgreSQL (SSL Neon.tech)
+├── database/
+│   └── schema.sql            # Skema tabel & data awal kategori/menu
+├── public/
+│   ├── admin.html            # Dashboard Admin (QR Meja, Menu, Laporan)
+│   ├── kitchen.html          # Kitchen Display System (KDS)
+│   ├── login.html            # Halaman autentikasi staf
+│   ├── menu.html             # Antarmuka pemesanan pelanggan
+│   └── order-status.html     # Struk digital & pelacakan status pesanan
+├── routes/
+│   └── orderRoutes.js        # Endpoint REST API, Midtrans & validasi QR
+├── server.js                 # Entry point Express, Socket.io & Auth Middleware
+├── vercel.json               # Konfigurasi routing deployment Vercel
+└── package.json

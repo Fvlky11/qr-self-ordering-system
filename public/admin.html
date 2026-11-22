@@ -68,7 +68,7 @@
         <section id="section-products" class="hidden">
             <div class="mb-5">
                 <h2 class="text-xl font-extrabold text-slate-900">Katalog & Ketersediaan Menu</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Klik badge status stok untuk mengaktifkan atau menonaktifkan menu secara instan.</p>
+                <p class="text-xs text-slate-500 mt-0.5">Wajib melampirkan foto menu (unggah dari perangkat atau tempel URL gambar).</p>
             </div>
 
             <form id="productForm" class="bg-white p-4 rounded-2xl shadow-xs border border-slate-200/80 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
@@ -86,9 +86,7 @@
                         </svg>
                     </button>
 
-                    <!-- Floating Menu List -->
-                    <div id="catDropdownMenu" class="hidden absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-100 py-1.5 z-40 animate-pop-in">
-                    </div>
+                    <div id="catDropdownMenu" class="hidden absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-100 py-1.5 z-40 animate-pop-in"></div>
                 </div>
 
                 <!-- Nama Menu -->
@@ -98,17 +96,27 @@
                 </div>
 
                 <!-- Input Harga Auto Format Rp.5.000 -->
-                <div class="md:col-span-3 relative">
+                <div class="md:col-span-2 relative">
                     <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-extrabold text-slate-400 select-none">Rp.</span>
                     <input type="text" inputmode="numeric" id="prodPrice" oninput="formatRupiahInput(this)" placeholder="5.000" required
-                           class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition">
+                           class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition">
                 </div>
 
-                <!-- URL Gambar + Tombol Simpan -->
-                <div class="md:col-span-3 flex gap-2">
-                    <input type="text" id="prodImage" placeholder="URL Gambar (Opsional)"
-                           class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm flex-1 min-w-0 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition">
-                    <button type="submit" class="bg-orange-600 hover:bg-orange-700 active:scale-95 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-orange-600/20 transition shrink-0">
+                <!-- Upload Foto Wajib / URL + Preview -->
+                <div class="md:col-span-4 flex items-center gap-2">
+                    <input type="hidden" id="prodImageData">
+                    <input type="file" id="prodImageFile" accept="image/*" class="hidden" onchange="handleImageUpload(this)">
+                    
+                    <label for="prodImageFile" id="uploadBox"
+                           class="flex-1 cursor-pointer bg-slate-50 hover:bg-orange-50/70 border border-dashed border-slate-300 hover:border-orange-400 rounded-xl px-3 py-2 text-xs font-semibold text-slate-600 hover:text-orange-600 flex items-center gap-2 transition truncate">
+                        <img id="imagePreviewThumb" class="hidden w-6 h-6 rounded-md object-cover shrink-0 border border-slate-200">
+                        <svg id="uploadIcon" class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        <span id="uploadLabel" class="truncate">Upload Foto Menu *</span>
+                    </label>
+
+                    <button type="submit" id="saveProdBtn" class="bg-orange-600 hover:bg-orange-700 active:scale-95 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-orange-600/20 transition shrink-0">
                         + Simpan
                     </button>
                 </div>
@@ -181,10 +189,9 @@
             el.innerText = msg;
             el.classList.remove('hidden');
             clearTimeout(el._t);
-            el._t = setTimeout(() => el.classList.add('hidden'), 2500);
+            el._t = setTimeout(() => el.classList.add('hidden'), 2600);
         }
 
-        // Format otomatis titik ribuan saat mengetik (contoh: 5000 -> 5.000)
         function formatRupiahInput(input) {
             const rawDigits = input.value.replace(/\D/g, '');
             if (!rawDigits) {
@@ -192,6 +199,62 @@
                 return;
             }
             input.value = Number(rawDigits).toLocaleString('id-ID');
+        }
+
+        // Kompres otomatis foto yang diunggah agar super cepat dimuat pelanggan
+        function handleImageUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                showToast('File harus berupa gambar (JPG/PNG/WebP)!');
+                input.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const maxDim = 500;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height && width > maxDim) {
+                        height *= maxDim / width;
+                        width = maxDim;
+                    } else if (height > maxDim) {
+                        width *= maxDim / height;
+                        height = maxDim;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                    document.getElementById('prodImageData').value = compressedDataUrl;
+
+                    const thumb = document.getElementById('imagePreviewThumb');
+                    thumb.src = compressedDataUrl;
+                    thumb.classList.remove('hidden');
+                    document.getElementById('uploadIcon').classList.add('hidden');
+                    document.getElementById('uploadLabel').innerText = file.name;
+                    document.getElementById('uploadBox').classList.remove('border-red-400', 'bg-red-50');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetImageUploadUI() {
+            document.getElementById('prodImageFile').value = '';
+            document.getElementById('prodImageData').value = '';
+            document.getElementById('imagePreviewThumb').classList.add('hidden');
+            document.getElementById('uploadIcon').classList.remove('hidden');
+            document.getElementById('uploadLabel').innerText = 'Upload Foto Menu *';
         }
 
         // Custom Dropdown Controls
@@ -231,7 +294,6 @@
             }).join('');
         }
 
-        // Tutup dropdown jika klik di luar area dropdown
         document.addEventListener('click', (e) => {
             const wrapper = document.getElementById('customCatWrapper');
             if (wrapper && !wrapper.contains(e.target)) {
@@ -345,24 +407,47 @@
         document.getElementById('productForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const rawPrice = Number(document.getElementById('prodPrice').value.replace(/\D/g, ''));
+            const imageData = document.getElementById('prodImageData').value;
+
             if (!rawPrice) return showToast('Masukkan harga menu yang valid!');
 
-            const payload = {
-                category_id: document.getElementById('prodCategory').value,
-                name: document.getElementById('prodName').value,
-                price: rawPrice,
-                image_url: document.getElementById('prodImage').value
-            };
-            await fetch('/api/admin/products', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            document.getElementById('prodName').value = '';
-            document.getElementById('prodPrice').value = '';
-            document.getElementById('prodImage').value = '';
-            showToast('Menu baru berhasil ditambahkan!');
-            loadProducts();
+            // Validasi wajib melampirkan foto
+            if (!imageData) {
+                const box = document.getElementById('uploadBox');
+                box.classList.add('border-red-400', 'bg-red-50', 'text-red-600');
+                setTimeout(() => box.classList.remove('border-red-400', 'bg-red-50', 'text-red-600'), 2000);
+                return showToast('Foto menu wajib diunggah terlebih dahulu!');
+            }
+
+            const btn = document.getElementById('saveProdBtn');
+            btn.disabled = true;
+            btn.innerText = 'Menyimpan...';
+
+            try {
+                const payload = {
+                    category_id: document.getElementById('prodCategory').value,
+                    name: document.getElementById('prodName').value,
+                    price: rawPrice,
+                    image_url: imageData
+                };
+                const res = await fetch('/api/admin/products', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) throw new Error('Gagal menyimpan menu');
+
+                document.getElementById('prodName').value = '';
+                document.getElementById('prodPrice').value = '';
+                resetImageUploadUI();
+                showToast('Menu baru berhasil ditambahkan!');
+                loadProducts();
+            } catch (err) {
+                showToast(err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '+ Simpan';
+            }
         });
 
         async function toggleStock(id, btnEl) {

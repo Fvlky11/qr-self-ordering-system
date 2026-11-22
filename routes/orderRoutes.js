@@ -4,7 +4,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const midtransClient = require('midtrans-client');
 const QRCode = require('qrcode');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('crypto');
 
 const snap = new midtransClient.Snap({
     isProduction: (process.env.MIDTRANS_IS_PRODUCTION || '').trim() === 'true',

@@ -1,23 +1,59 @@
-# QR Code Table Self-Ordering System (Pay-First Architecture)
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config();
 
-Aplikasi web pemesanan mandiri (*self-ordering*) berbasis QR Code meja untuk restoran atau kafe dengan alur pembayaran instan (*Pay-First*) dan pembaruan pesanan *real-time* ke layar dapur.
+const pool = require('./config/db');
+const orderRoutes = require('./routes/orderRoutes');
 
-## Fitur Utama
-- **QR Code Table Validation**: Pembuatan QR Code unik per meja dengan token keamanan (`UUIDv4`) yang dapat di-reset admin untuk mencegah pemesanan palsu dari luar area restoran.
-- **Customer Digital Menu**: Filter kategori menu, pengelolaan keranjang belanja, dan input catatan khusus per item (*item notes*).
-- **Instant Online Payment**: Integrasi payment gateway **Midtrans Snap** (QRIS, Virtual Account, E-Wallet) dengan verifikasi otomatis.
-- **Kitchen Display System (KDS)**: Layar antrean dapur *real-time* menggunakan **Socket.io** dengan status 2 tahap (*Baru* $\rightarrow$ *Dimasak* $\rightarrow$ *Selesai & Antar*).
-- **Live Order Tracking & Digital Receipt**: Pelanggan dapat memantau progres masak secara *real-time* di ponsel tanpa perlu *refresh* halaman.
-- **Admin Dashboard**: Manajemen QR meja, pengelolaan stok menu (*Tersedia / Habis*), serta ringkasan laporan omzet transaksi lunas.
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: '*' } });
 
-## Tech Stack
-- **Backend**: Node.js, Express.js, Socket.io
-- **Database**: PostgreSQL (`pg`)
-- **Payment Gateway**: Midtrans Snap API
-- **Frontend**: HTML5, Vanilla JavaScript, Tailwind CSS
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-## Cara Menjalankan di Lokal
-1. Clone repositori ini:
-   ```bash
-   git clone [https://github.com/Fvlky11/qr-self-ordering-system.git](https://github.com/Fvlky11/qr-self-ordering-system.git)
-   cd qr-self-ordering-system
+app.use((req, res, next) => {
+    req.io = io;
+    next();
+});
+
+app.get('/', (req, res) => {
+    res.redirect('/admin.html');
+});
+
+app.use('/api', orderRoutes);
+
+io.on('connection', (socket) => {
+    socket.on('join_kitchen', () => socket.join('kitchen_room'));
+    socket.on('join_order', (orderCode) => socket.join(`order_${orderCode}`));
+});
+
+async function initDatabase() {
+    try {
+        const check = await pool.query("SELECT to_regclass('public.tables')");
+        if (!check.rows[0].to_regclass) {
+            const schema = fs.readFileSync(path.join(__dirname, 'database', 'schema.sql'), 'utf8');
+            await pool.query(schema);
+            console.log('Tabel database dan data menu awal berhasil dibuat!');
+        }
+    } catch (err) {
+        console.error('Database init warning:', err.message);
+    }
+}
+
+initDatabase();
+
+// Jalankan server lokal hanya jika tidak sedang berjalan di environment serverless Vercel
+if (process.env.VERCEL !== '1') {
+    const PORT = process.env.PORT || 3000;
+    server.listen(PORT, () => {
+        console.log(`Server aktif di http://localhost:${PORT}`);
+    });
+}
+
+module.exports = app;

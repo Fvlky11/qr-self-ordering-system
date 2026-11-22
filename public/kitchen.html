@@ -90,6 +90,19 @@
             }
         }
 
+        // Auto-refresh antrean dapur setiap 3 detik agar tetap real-time di Vercel
+setInterval(async () => {
+    const res = await fetch('/api/kitchen/orders');
+    if (res.ok) {
+        const orders = await res.json();
+        const activeIds = orders.map(o => `order-${o.id}`);
+        document.querySelectorAll('#ordersGrid > div').forEach(el => {
+            if (!activeIds.includes(el.id)) el.remove();
+        });
+        orders.forEach(renderOrderCard);
+    }
+}, 3000);
+
         loadExistingOrders();
     </script>
 </body>

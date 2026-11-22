@@ -93,6 +93,10 @@
             updateStatusUI(data.order_status);
         });
 
+// Cek pembaruan status masak otomatis setiap 3 detik
+setInterval(loadOrder, 3000);
+
+
         loadOrder();
     </script>
 </body>

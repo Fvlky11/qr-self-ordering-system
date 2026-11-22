@@ -38,10 +38,18 @@
                 <button onclick="switchTab('reports')" id="tab-reports" class="px-3.5 py-1.5 rounded-lg text-slate-300 hover:text-white text-xs font-bold transition">Laporan Omzet</button>
             </div>
 
-            <a href="/kitchen.html" target="_blank" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-                Layar Dapur (KDS) ↗
-            </a>
+            <div class="flex items-center gap-2">
+                <a href="/kitchen.html" target="_blank" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                    Layar Dapur (KDS) ↗
+                </a>
+                <button onclick="logoutStaff()" title="Keluar dari Sesi Staf" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white border border-white/5 text-xs font-bold transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    Keluar
+                </button>
+            </div>
         </div>
     </nav>
 
@@ -68,7 +76,7 @@
         <section id="section-products" class="hidden">
             <div class="mb-5">
                 <h2 class="text-xl font-extrabold text-slate-900">Katalog & Ketersediaan Menu</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Wajib melampirkan foto menu (unggah dari perangkat atau tempel URL gambar).</p>
+                <p class="text-xs text-slate-500 mt-0.5">Wajib melampirkan foto menu (unggah dari perangkat atau galeri).</p>
             </div>
 
             <form id="productForm" class="bg-white p-4 rounded-2xl shadow-xs border border-slate-200/80 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
@@ -102,7 +110,7 @@
                            class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 py-2.5 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition">
                 </div>
 
-                <!-- Upload Foto Wajib / URL + Preview -->
+                <!-- Upload Foto Wajib + Preview -->
                 <div class="md:col-span-4 flex items-center gap-2">
                     <input type="hidden" id="prodImageData">
                     <input type="file" id="prodImageFile" accept="image/*" class="hidden" onchange="handleImageUpload(this)">
@@ -184,6 +192,11 @@
     <script>
         let categoriesCache = [];
 
+        async function logoutStaff() {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/login.html';
+        }
+
         function showToast(msg) {
             const el = document.getElementById('toast');
             el.innerText = msg;
@@ -201,7 +214,6 @@
             input.value = Number(rawDigits).toLocaleString('id-ID');
         }
 
-        // Kompres otomatis foto yang diunggah agar super cepat dimuat pelanggan
         function handleImageUpload(input) {
             const file = input.files[0];
             if (!file) return;
@@ -257,7 +269,6 @@
             document.getElementById('uploadLabel').innerText = 'Upload Foto Menu *';
         }
 
-        // Custom Dropdown Controls
         function toggleCatDropdown() {
             const menu = document.getElementById('catDropdownMenu');
             const chevron = document.getElementById('catChevron');
@@ -317,6 +328,7 @@
 
         async function loadTables() {
             const res = await fetch('/api/tables');
+            if (res.status === 401) return (window.location.href = '/login.html');
             const tables = await res.json();
             document.getElementById('tablesGrid').innerHTML = tables.map(t => `
                 <div class="bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80 hover:border-orange-200 transition flex flex-col items-center text-center">
@@ -377,6 +389,7 @@
 
         async function loadProducts() {
             const res = await fetch('/api/admin/products');
+            if (res.status === 401) return (window.location.href = '/login.html');
             const data = await res.json();
             categoriesCache = data.categories;
 
@@ -411,7 +424,6 @@
 
             if (!rawPrice) return showToast('Masukkan harga menu yang valid!');
 
-            // Validasi wajib melampirkan foto
             if (!imageData) {
                 const box = document.getElementById('uploadBox');
                 box.classList.add('border-red-400', 'bg-red-50', 'text-red-600');
@@ -461,6 +473,7 @@
 
         async function loadReports() {
             const res = await fetch('/api/admin/reports');
+            if (res.status === 401) return (window.location.href = '/login.html');
             const data = await res.json();
             document.getElementById('repRevenue').innerText = `Rp.${Number(data.summary.total_revenue).toLocaleString('id-ID')}`;
             document.getElementById('repOrders').innerText = `${data.summary.total_orders} Pesanan`;

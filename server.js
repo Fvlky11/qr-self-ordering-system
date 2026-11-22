@@ -18,53 +18,88 @@ app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
 // =========================================================================
-// SECURITY MIDDLEWARE: Proteksi Halaman & API Admin + Layar Dapur (KDS)
+// HELPER & MIDDLEWARE AUTENTIKASI SESSION COOKIE (Tanpa Paket Eksternal)
 // =========================================================================
-function requireStaffAuth(req, res, next) {
-    const protectedPrefixes = [
-        '/admin.html',
-        '/kitchen.html',
-        '/api/admin',
-        '/api/kitchen',
-        '/api/tables'
-    ];
+function getSessionToken() {
+    const user = (process.env.ADMIN_USER || 'admin').trim();
+    const pass = (process.env.ADMIN_PASSWORD || 'admin123').trim();
+    const secret = (process.env.MIDTRANS_SERVER_KEY || 'restoos-secret-key').trim();
+    return crypto.createHmac('sha256', secret).update(`${user}:${pass}`).digest('hex');
+}
 
-    const isProtected = req.path === '/' || protectedPrefixes.some(prefix => req.path.startsWith(prefix));
-    if (!isProtected) return next();
+function parseCookies(cookieHeader = '') {
+    const cookies = {};
+    cookieHeader.split(';').forEach(part => {
+        const idx = part.indexOf('=');
+        if (idx > -1) {
+            cookies[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
+        }
+    });
+    return cookies;
+}
 
+function isAuthenticated(req) {
+    const cookies = parseCookies(req.headers.cookie);
+    const token = cookies.restoos_session || '';
+    const expected = getSessionToken();
+    const a = Buffer.from(token);
+    const b = Buffer.from(expected);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// Endpoint Login Staf
+app.post('/api/auth/login', (req, res) => {
+    const { username = '', password = '' } = req.body;
     const expectedUser = (process.env.ADMIN_USER || 'admin').trim();
     const expectedPass = (process.env.ADMIN_PASSWORD || 'admin123').trim();
 
-    const authHeader = req.headers.authorization || '';
-    if (!authHeader.startsWith('Basic ')) {
-        res.setHeader('WWW-Authenticate', 'Basic realm="RestoOS Admin & Kitchen Area"');
-        return res.status(401).send('Autentikasi diperlukan untuk mengakses halaman staf.');
+    const u1 = Buffer.from(username.trim()), u2 = Buffer.from(expectedUser);
+    const p1 = Buffer.from(password), p2 = Buffer.from(expectedPass);
+
+    const validUser = u1.length === u2.length && crypto.timingSafeEqual(u1, u2);
+    const validPass = p1.length === p2.length && crypto.timingSafeEqual(p1, p2);
+
+    if (!validUser || !validPass) {
+        return res.status(401).json({ error: 'Nama pengguna atau kata sandi salah.' });
     }
 
-    const base64Credentials = authHeader.split(' ')[1];
-    const credentials = Buffer.from(base64Credentials, 'base64').toString('utf8');
-    const separatorIndex = credentials.indexOf(':');
-    const user = separatorIndex !== -1 ? credentials.slice(0, separatorIndex) : '';
-    const pass = separatorIndex !== -1 ? credentials.slice(separatorIndex + 1) : '';
+    const token = getSessionToken();
+    const isProd = process.env.VERCEL === '1';
+    res.setHeader(
+        'Set-Cookie',
+        `restoos_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400${isProd ? '; Secure' : ''}`
+    );
+    res.json({ success: true });
+});
 
-    // Constant-time comparison untuk mencegah timing attack
-    const userBuf = Buffer.from(user);
-    const expUserBuf = Buffer.from(expectedUser);
-    const passBuf = Buffer.from(pass);
-    const expPassBuf = Buffer.from(expectedPass);
+// Endpoint Logout Staf
+app.post('/api/auth/logout', (req, res) => {
+    res.setHeader('Set-Cookie', 'restoos_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+    res.json({ success: true });
+});
 
-    const isUserValid = userBuf.length === expUserBuf.length && crypto.timingSafeEqual(userBuf, expUserBuf);
-    const isPassValid = passBuf.length === expPassBuf.length && crypto.timingSafeEqual(passBuf, expPassBuf);
+// Middleware Proteksi Rute Staf (Admin & Dapur)
+app.use((req, res, next) => {
+    const protectedPages = ['/', '/admin.html', '/kitchen.html'];
+    const protectedApis = ['/api/admin', '/api/kitchen', '/api/tables'];
 
-    if (!isUserValid || !isPassValid) {
-        res.setHeader('WWW-Authenticate', 'Basic realm="RestoOS Admin & Kitchen Area"');
-        return res.status(401).send('Username atau Password salah.');
+    if (protectedPages.includes(req.path)) {
+        if (!isAuthenticated(req)) {
+            const target = req.path === '/' ? '/admin.html' : req.path;
+            return res.redirect(`/login.html?redirect=${encodeURIComponent(target)}`);
+        }
+        return next();
+    }
+
+    if (protectedApis.some(prefix => req.path.startsWith(prefix))) {
+        if (!isAuthenticated(req)) {
+            return res.status(401).json({ error: 'Sesi berakhir. Silakan login kembali.' });
+        }
     }
 
     next();
-}
+});
 
-app.use(requireStaffAuth);
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use((req, res, next) => {

@@ -46,7 +46,7 @@
     <script>
         const params = new URLSearchParams(window.location.search);
         const orderCode = params.get('code');
-        const socket = io();
+        const socket = typeof io !== 'undefined' ? io() : null;
 
         const statusMap = {
             waiting_payment: { text: 'Menunggu Pembayaran', style: 'bg-yellow-50 border-yellow-200 text-yellow-800' },
@@ -64,7 +64,7 @@
 
         async function loadOrder() {
             const res = await fetch(`/api/orders/${orderCode}`);
-            if (!res.ok) return alert('Data pesanan tidak ditemukan.');
+            if (!res.ok) return;
             const order = await res.json();
 
             document.getElementById('orderCodeText').innerText = order.order_code;
@@ -84,19 +84,17 @@
                     <span class="font-medium text-gray-700">Rp ${(i.unit_price * i.quantity).toLocaleString('id-ID')}</span>
                 </li>
             `).join('');
-
-            // Bergabung ke room socket pesanan ini
-            socket.emit('join_order', orderCode);
         }
 
-        socket.on('order_status_updated', (data) => {
-            updateStatusUI(data.order_status);
-        });
+        if (socket) {
+            socket.emit('join_order', orderCode);
+            socket.on('order_status_updated', (data) => {
+                updateStatusUI(data.order_status);
+            });
+        }
 
-// Cek pembaruan status masak otomatis setiap 3 detik
-setInterval(loadOrder, 3000);
-
-
+        // Auto-sync status pesanan setiap 3 detik (agar tetap real-time di Vercel serverless)
+        setInterval(loadOrder, 3000);
         loadOrder();
     </script>
 </body>

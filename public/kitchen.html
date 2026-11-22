@@ -16,18 +16,26 @@
     <div id="ordersGrid" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
 
     <script>
-        const socket = io();
-        socket.emit('join_kitchen');
+        const socket = typeof io !== 'undefined' ? io() : null;
+        if (socket) {
+            socket.emit('join_kitchen');
+            socket.on('new_paid_order', (order) => {
+                renderOrderCard(order);
+            });
+        }
 
         async function loadExistingOrders() {
             const res = await fetch('/api/kitchen/orders');
+            if (!res.ok) return;
             const orders = await res.json();
+            
+            const activeIds = orders.map(o => `order-${o.id}`);
+            document.querySelectorAll('#ordersGrid > div').forEach(el => {
+                if (!activeIds.includes(el.id)) el.remove();
+            });
+
             orders.forEach(renderOrderCard);
         }
-
-        socket.on('new_paid_order', (order) => {
-            renderOrderCard(order);
-        });
 
         function renderOrderCard(order) {
             const existing = document.getElementById(`order-${order.id}`);
@@ -81,28 +89,15 @@
             });
 
             if (status === 'served') {
-                document.getElementById(`order-${id}`).remove();
+                const el = document.getElementById(`order-${id}`);
+                if (el) el.remove();
             } else {
-                const res = await fetch('/api/kitchen/orders');
-                const orders = await res.json();
-                const updated = orders.find(o => o.id === id);
-                if (updated) renderOrderCard(updated);
+                loadExistingOrders();
             }
         }
 
-        // Auto-refresh antrean dapur setiap 3 detik agar tetap real-time di Vercel
-setInterval(async () => {
-    const res = await fetch('/api/kitchen/orders');
-    if (res.ok) {
-        const orders = await res.json();
-        const activeIds = orders.map(o => `order-${o.id}`);
-        document.querySelectorAll('#ordersGrid > div').forEach(el => {
-            if (!activeIds.includes(el.id)) el.remove();
-        });
-        orders.forEach(renderOrderCard);
-    }
-}, 3000);
-
+        // Auto-sync antrean dapur setiap 3 detik (agar tetap real-time di Vercel serverless)
+        setInterval(loadExistingOrders, 3000);
         loadExistingOrders();
     </script>
 </body>
